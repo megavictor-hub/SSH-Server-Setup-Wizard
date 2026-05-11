@@ -41,8 +41,15 @@
             border: 1px solid var(--border);
             margin-bottom: 30px;
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            /* По умолчанию 1 колонка (для мобилок) */
+            grid-template-columns: 1fr; 
             gap: 15px;
+        }
+        /* Если экран шире 600px (планшеты и ПК), делаем 2 колонки */
+        @media (min-width: 600px) {
+            .panel {
+                grid-template-columns: 1fr 1fr;
+            }
         }
         h1, h2 { color: #fff; }
         .panel h2 { grid-column: 1 / -1; margin-top: 0; font-size: 1.2em; }
@@ -54,6 +61,8 @@
             border-radius: 6px;
             font-size: 14px;
             outline: none;
+            width: 100%;
+            box-sizing: border-box; /* Чтобы padding не раздувал ширину */
         }
         input:focus { border-color: var(--accent); }
         .step {
@@ -83,6 +92,7 @@
             padding: 15px;
             border-radius: 6px;
             align-items: center;
+            flex-wrap: wrap; /* Чтобы кнопка Copy на узких экранах могла прыгнуть вниз */
         }
         code {
             font-family: 'JetBrains Mono', monospace;
@@ -138,35 +148,27 @@
         setTimeout(() => btn.innerText = originalText, 1500);
     }
 
-    let stepCounter = 0;
-
     function addStep(parent, target, title, desc, command) {
         const div = document.createElement('div');
         div.className = `step step-${target.toLowerCase()}`;
-        
-        stepCounter++;
-        const currentCode = command;
         
         div.innerHTML = `
             <span class="label">${target === 'VPS' ? '🖥️ VPS (Server)' : '💻 PC (Local)'}</span>
             <div class="title">${title}</div>
             <div class="desc">${desc}</div>
             <div class="code-box">
-                <code id="code-${stepCounter}">${currentCode}</code>
+                <code>${command}</code>
                 <button type="button" class="copy-btn">Copy</button>
             </div>
         `;
         
         const btn = div.querySelector('.copy-btn');
-        btn.onclick = () => copyToClipboard(currentCode, btn);
-        
+        btn.onclick = () => copyToClipboard(command, btn);
         parent.appendChild(div);
     }
 
     function render() {
         outputArea.innerHTML = "";
-        stepCounter = 0;
-        
         const ip = document.getElementById('ip').value || "123.456.789.123";
         const key = document.getElementById('key').value || "fin_vps_1";
         const user = document.getElementById('user').value || "metela";
@@ -179,14 +181,14 @@
 
         addStep(outputArea, 'VPS', '1. Первое подключение', 'Заходим на чистый сервер под root', `ssh root@${ip}`);
         addStep(outputArea, 'VPS', '2. Обновление', 'Обновляем списки пакетов и установленные компоненты', `apt update && apt upgrade -y`);
-        addStep(outputArea, 'VPS', '3. Утилиты', 'Устанавливаем полезный системный софт: curl, wget, git, nano, ufw, htop, sudo', `apt install -y curl wget git nano ufw htop sudo`);
-        addStep(outputArea, 'PC', '4. SSH-ключ', 'Генерируем современный и безопасный SSH-ключ формата Ed25519', `ssh-keygen -t ed25519 -f $HOME/.ssh/${key} -C "main_key"`);
-        addStep(outputArea, 'VPS', '5. Новый пользователь', 'Создаем нового пользователя и добавляем его в группу sudo для управления сервером', `adduser --gecos "" ${user} && usermod -aG sudo ${user}`);
-        addStep(outputArea, 'PC', '6. Отправка ключа', 'Копируем публичную часть ключа на сервер во временную папку', `scp $HOME/.ssh/${key}.pub root@${ip}:/tmp/`);
-        addStep(outputArea, 'VPS', '7. Настройка прав', 'Создаем папку .ssh, импортируем ключ и выставляем безопасные права доступа', `mkdir -p /home/${user}/.ssh && cat /tmp/${key}.pub >> /home/${user}/.ssh/authorized_keys && chown -R ${user}:${user} /home/${user}/.ssh && chmod 700 /home/${user}/.ssh && chmod 600 /home/${user}/.ssh/authorized_keys && rm /tmp/${key}.pub`);
-        addStep(outputArea, 'VPS', '8. Безопасность', 'Отключаем вход под Root и по паролю, разрешаем вход только по SSH-ключу для созданного пользователя', `cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup && sed -i 's/#\\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && sed -i 's/#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && sed -i 's/#\\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config && echo "AllowUsers ${user}" >> /etc/ssh/sshd_config && sshd -t && systemctl restart ssh`);
-        addStep(outputArea, 'VPS', '9. Фаервол', 'Меняем стандартный порт SSH на новый, открываем его в UFW и включаем защиту', `sed -i 's/#\\?Port 22/Port ${port}/' /etc/ssh/sshd_config && ufw allow ${port}/tcp && ufw --force enable && ufw delete allow 22/tcp && ufw reload && systemctl restart sshd`);
-        addStep(outputArea, 'PC', '10. Подключение по SSH-ключу', 'Проверяем доступ под новым пользователем с использованием созданного ключа и нового порта', `ssh -i $HOME/.ssh/${key} -p ${port} ${user}@${ip}`);
+        addStep(outputArea, 'VPS', '3. Утилиты', 'Устанавливаем полезный системный софт', `apt install -y curl wget git nano ufw htop sudo`);
+        addStep(outputArea, 'PC', '4. SSH-ключ', 'Генерируем современный и безопасный SSH-ключ Ed25519', `ssh-keygen -t ed25519 -f $HOME/.ssh/${key} -C "main_key"`);
+        addStep(outputArea, 'VPS', '5. Новый пользователь', 'Создаем пользователя и даем sudo', `adduser --gecos "" ${user} && usermod -aG sudo ${user}`);
+        addStep(outputArea, 'PC', '6. Отправка ключа', 'Копируем публичную часть ключа на сервер', `scp $HOME/.ssh/${key}.pub root@${ip}:/tmp/`);
+        addStep(outputArea, 'VPS', '7. Настройка прав', 'Настраиваем папку .ssh и доступы', `mkdir -p /home/${user}/.ssh && cat /tmp/${key}.pub >> /home/${user}/.ssh/authorized_keys && chown -R ${user}:${user} /home/${user}/.ssh && chmod 700 /home/${user}/.ssh && chmod 600 /home/${user}/.ssh/authorized_keys && rm /tmp/${key}.pub`);
+        addStep(outputArea, 'VPS', '8. Безопасность', 'Отключаем вход под Root и по паролю', `cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup && sed -i 's/#\\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && sed -i 's/#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && sed -i 's/#\\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config && echo "AllowUsers ${user}" >> /etc/ssh/sshd_config && sshd -t && systemctl restart ssh`);
+        addStep(outputArea, 'VPS', '9. Фаервол', 'Меняем порт и настраиваем UFW', `sed -i 's/#\\?Port 22/Port ${port}/' /etc/ssh/sshd_config && ufw allow ${port}/tcp && ufw --force enable && ufw delete allow 22/tcp && ufw reload && systemctl restart sshd`);
+        addStep(outputArea, 'PC', '10. Подключение по SSH-ключу', 'Проверяем доступ длинной командой', `ssh -i $HOME/.ssh/${key} -p ${port} ${user}@${ip}`);
 
         const h2 = document.createElement('h2');
         h2.className = "section-title";
@@ -194,8 +196,8 @@
         h2.innerText = "🚀 Второй этап: Быстрый вход (Windows)";
         outputArea.appendChild(h2);
 
-        addStep(outputArea, 'PC', '10. Настройка конфига', 'Добавляем параметры сервера в локальный список SSH через PowerShell для упрощения входа', `$config = @"\nHost ${key}\n    HostName ${ip}\n    User ${user}\n    Port ${port}\n    IdentityFile ~/.ssh/${key}\n    TCPKeepAlive yes\n    ServerAliveInterval 60\n    ServerAliveCountMax 3\n    StrictHostKeyChecking accept-new\n"@; $config | Out-File -FilePath $HOME\\.ssh\\config -Append -Encoding UTF8`);
-        addStep(outputArea, 'PC', '11. Подключение по SSH-ключу', 'Теперь заходим на сервер одной короткой командой (алиасом)', `ssh ${key}`);
+        addStep(outputArea, 'PC', '10. Настройка конфига', 'Добавляем сервер в локальный список SSH через PowerShell', `$config = @"\nHost ${key}\n    HostName ${ip}\n    User ${user}\n    Port ${port}\n    IdentityFile ~/.ssh/${key}\n    TCPKeepAlive yes\n    ServerAliveInterval 60\n    ServerAliveCountMax 3\n    StrictHostKeyChecking accept-new\n"@; $config | Out-File -FilePath $HOME\\.ssh\\config -Append -Encoding UTF8`);
+        addStep(outputArea, 'PC', '11. Подключение по SSH-ключу', 'Заходим на сервер короткой командой', `ssh ${key}`);
     }
 
     inputs.forEach(id => document.getElementById(id).addEventListener('input', render));
