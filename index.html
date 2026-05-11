@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSH Config Wizard</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card-bg: #161b22;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --accent: #58a6ff;
+            --green: #3fb950;
+            --vps-bg: #1e2a3a;
+            --pc-bg: #2d3a25;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 900px;
+            width: 100%;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .panel {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        h1, h2 { color: #fff; }
+        .panel h2 { grid-column: 1 / -1; margin-top: 0; font-size: 1.2em; }
+        input {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+        }
+        input:focus { border-color: var(--accent); }
+        .step {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+        }
+        .step-vps { background: var(--vps-bg); }
+        .step-pc { background: var(--pc-bg); }
+        .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+            opacity: 0.7;
+            margin-bottom: 5px;
+            display: block;
+        }
+        .title { font-weight: bold; font-size: 1.1em; margin-bottom: 5px; color: #fff; }
+        .desc { font-size: 0.9em; opacity: 0.8; margin-bottom: 12px; }
+        .code-box {
+            display: flex;
+            gap: 15px;
+            background: #000;
+            padding: 15px;
+            border-radius: 6px;
+            align-items: center;
+        }
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--green);
+            font-size: 0.85em;
+            flex-grow: 1;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        button {
+            background: #21262d;
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: 0.2s;
+            white-space: nowrap;
+        }
+        button:hover { background: #30363d; border-color: #8b949e; }
+        .section-title { margin-top: 50px; border-bottom: 1px solid var(--border); padding-bottom: 10px; text-align: left; width: 100%; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>🛠️ SSH Setup Wizard</h1>
+        <p>Инструмент для безопасной настройки Linux-серверов</p>
+    </div>
+
+    <div class="panel">
+        <h2>Настройка переменных</h2>
+        <input type="text" id="ip" placeholder="IP сервера (например: 123.456.789.123)">
+        <input type="text" id="key" placeholder="Название SSH-ключa (например: fin_vps_1)">
+        <input type="text" id="user" placeholder="Имя нового пользователя (например: metela)">
+        <input type="text" id="port" placeholder="Новый SSH порт (например: 9596)">
+    </div>
+
+    <div id="output"></div>
+</div>
+
+<script>
+    const inputs = ['ip', 'key', 'user', 'port'];
+    const outputArea = document.getElementById('output');
+
+    function copyToClipboard(text, btn) {
+        navigator.clipboard.writeText(text);
+        const originalText = btn.innerText;
+        btn.innerText = "OK!";
+        setTimeout(() => btn.innerText = originalText, 1500);
+    }
+
+    let stepCounter = 0;
+
+    function addStep(parent, target, title, desc, command) {
+        const div = document.createElement('div');
+        div.className = `step step-${target.toLowerCase()}`;
+        
+        stepCounter++;
+        const currentCode = command;
+        
+        div.innerHTML = `
+            <span class="label">${target === 'VPS' ? '🖥️ VPS (Server)' : '💻 PC (Local)'}</span>
+            <div class="title">${title}</div>
+            <div class="desc">${desc}</div>
+            <div class="code-box">
+                <code id="code-${stepCounter}">${currentCode}</code>
+                <button type="button" class="copy-btn">Copy</button>
+            </div>
+        `;
+        
+        const btn = div.querySelector('.copy-btn');
+        btn.onclick = () => copyToClipboard(currentCode, btn);
+        
+        parent.appendChild(div);
+    }
+
+    function render() {
+        outputArea.innerHTML = "";
+        stepCounter = 0;
+        
+        const ip = document.getElementById('ip').value || "123.456.789.123";
+        const key = document.getElementById('key').value || "fin_vps_1";
+        const user = document.getElementById('user').value || "metela";
+        const port = document.getElementById('port').value || "9596";
+
+        const h1 = document.createElement('h2');
+        h1.className = "section-title";
+        h1.innerText = "Первый этап: Базовая настройка";
+        outputArea.appendChild(h1);
+
+        addStep(outputArea, 'VPS', '1. Первое подключение', 'Заходим на чистый сервер под root', `ssh root@${ip}`);
+        addStep(outputArea, 'VPS', '2. Обновление', 'Обновляем списки пакетов и установленные компоненты', `apt update && apt upgrade -y`);
+        addStep(outputArea, 'VPS', '3. Утилиты', 'Устанавливаем полезный системный софт: curl, wget, git, nano, ufw, htop, sudo', `apt install -y curl wget git nano ufw htop sudo`);
+        addStep(outputArea, 'PC', '4. SSH-ключ', 'Генерируем современный и безопасный SSH-ключ формата Ed25519', `ssh-keygen -t ed25519 -f $HOME/.ssh/${key} -C "main_key"`);
+        addStep(outputArea, 'VPS', '5. Новый пользователь', 'Создаем нового пользователя и добавляем его в группу sudo для управления сервером', `adduser --gecos "" ${user} && usermod -aG sudo ${user}`);
+        addStep(outputArea, 'PC', '6. Отправка ключа', 'Копируем публичную часть ключа на сервер во временную папку', `scp $HOME/.ssh/${key}.pub root@${ip}:/tmp/`);
+        addStep(outputArea, 'VPS', '7. Настройка прав', 'Создаем папку .ssh, импортируем ключ и выставляем безопасные права доступа', `mkdir -p /home/${user}/.ssh && cat /tmp/${key}.pub >> /home/${user}/.ssh/authorized_keys && chown -R ${user}:${user} /home/${user}/.ssh && chmod 700 /home/${user}/.ssh && chmod 600 /home/${user}/.ssh/authorized_keys && rm /tmp/${key}.pub`);
+        addStep(outputArea, 'VPS', '8. Безопасность', 'Отключаем вход под Root и по паролю, разрешаем вход только по SSH-ключу для созданного пользователя', `cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup && sed -i 's/#\\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && sed -i 's/#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && sed -i 's/#\\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config && echo "AllowUsers ${user}" >> /etc/ssh/sshd_config && sshd -t && systemctl restart ssh`);
+        addStep(outputArea, 'VPS', '9. Фаервол', 'Меняем стандартный порт SSH на новый, открываем его в UFW и включаем защиту', `sed -i 's/#\\?Port 22/Port ${port}/' /etc/ssh/sshd_config && ufw allow ${port}/tcp && ufw --force enable && ufw delete allow 22/tcp && ufw reload && systemctl restart sshd`);
+        addStep(outputArea, 'PC', '10. Подключение по SSH-ключу', 'Проверяем доступ под новым пользователем с использованием созданного ключа и нового порта', `ssh -i $HOME/.ssh/${key} -p ${port} ${user}@${ip}`);
+
+        const h2 = document.createElement('h2');
+        h2.className = "section-title";
+        h2.style.color = "var(--green)";
+        h2.innerText = "🚀 Второй этап: Быстрый вход (Windows)";
+        outputArea.appendChild(h2);
+
+        addStep(outputArea, 'PC', '10. Настройка конфига', 'Добавляем параметры сервера в локальный список SSH через PowerShell для упрощения входа', `$config = @"\nHost ${key}\n    HostName ${ip}\n    User ${user}\n    Port ${port}\n    IdentityFile ~/.ssh/${key}\n    TCPKeepAlive yes\n    ServerAliveInterval 60\n    ServerAliveCountMax 3\n    StrictHostKeyChecking accept-new\n"@; $config | Out-File -FilePath $HOME\\.ssh\\config -Append -Encoding UTF8`);
+        addStep(outputArea, 'PC', '11. Подключение по SSH-ключу', 'Теперь заходим на сервер одной короткой командой (алиасом)', `ssh ${key}`);
+    }
+
+    inputs.forEach(id => document.getElementById(id).addEventListener('input', render));
+    render();
+</script>
+
+</body>
+</html>
